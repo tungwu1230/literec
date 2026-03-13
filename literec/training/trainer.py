@@ -91,9 +91,8 @@ class Trainer:
             )
 
             print(
-                f"Epoch {epoch + 1}/{self.epochs} | "
-                f"Loss: {avg_loss:.4f} | "
-                + " | ".join(f"{k}: {v:.4f}" for k, v in valid_results.items())
+                f"Epoch {epoch + 1:>{len(str(self.epochs))}}/{self.epochs} | "
+                f"Loss: {avg_loss:.4f} | {primary_key}: {valid_results.get(primary_key, 0.0):.4f}"
             )
 
             # Early stopping
@@ -123,11 +122,30 @@ class Trainer:
             )
 
         test_results = self._run_evaluation(self.dataset.test_data, mask_data=test_mask)
-        print(
-            "Test results: "
-            + " | ".join(f"{k}: {v:.4f}" for k, v in test_results.items())
-        )
+        self._print_table("Test Results", test_results)
         return test_results
+
+    def _print_table(self, title: str, results: dict[str, float]):
+        """Print results as a formatted table grouped by metric."""
+        # Parse keys like "Recall@20" into (metric, k)
+        parsed: dict[str, dict[int, float]] = {}
+        for key, val in results.items():
+            metric, k_str = key.split("@")
+            k = int(k_str)
+            parsed.setdefault(metric, {})[k] = val
+
+        metrics = list(parsed.keys())
+        ks = sorted(next(iter(parsed.values())).keys())
+
+        # Header
+        print(f"\n{title}:")
+        header = "".join(f"{m:>10}" for m in metrics)
+        print(f"{'':>8}{header}")
+
+        # Rows
+        for k in ks:
+            row = "".join(f"{parsed[m][k]:>10.4f}" for m in metrics)
+            print(f"{'@'+ str(k):>8}{row}")
 
     @torch.no_grad()
     def _run_evaluation(
