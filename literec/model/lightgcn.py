@@ -35,7 +35,8 @@ class LightGCN(AbstractRecommender):
         adj = sp.coo_matrix((data, (rows, cols)), shape=(n, n))
 
         degree = np.array(adj.sum(axis=1)).flatten()
-        d_inv_sqrt = np.where(degree > 0, np.power(degree, -0.5), 0.0)
+        with np.errstate(divide="ignore"):
+            d_inv_sqrt = np.where(degree > 0, np.power(degree, -0.5), 0.0)
         D_inv_sqrt = sp.diags(d_inv_sqrt)
         norm = D_inv_sqrt @ adj @ D_inv_sqrt
         norm = norm.tocoo()
