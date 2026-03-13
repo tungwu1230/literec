@@ -15,6 +15,12 @@ Lightweight recommendation framework for academic research. A minimal replacemen
 ## Installation
 
 ```bash
+# From GitHub (recommended for Colab)
+pip install git+https://github.com/tungwu1230/literec.git
+
+# From local clone
+git clone https://github.com/tungwu1230/literec.git
+cd literec
 pip install -e .
 
 # For development
