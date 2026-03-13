@@ -26,3 +26,26 @@ def test_id_remapping(tiny_csv):
     for uid in ds.train_data:
         for iid in ds.train_data[uid]:
             assert 0 <= iid < ds.n_items
+
+
+def test_loo_split(tiny_csv):
+    ds = Dataset(tiny_csv, split="loo")
+    for uid in range(ds.n_users):
+        assert len(ds.test_data[uid]) == 1
+        assert len(ds.valid_data[uid]) == 1
+        assert len(ds.train_data[uid]) == 3  # 5 total - 1 test - 1 valid
+
+
+def test_random_split(tiny_csv):
+    ds = Dataset(tiny_csv, split="random")
+    for uid in range(ds.n_users):
+        total = len(ds.train_data[uid]) + len(ds.valid_data[uid]) + len(ds.test_data[uid])
+        assert total == 5
+
+
+def test_train_matrix_no_leakage(tiny_csv):
+    ds = Dataset(tiny_csv, split="loo")
+    for uid in range(ds.n_users):
+        train_items_from_matrix = set(ds.train_matrix[uid].indices)
+        train_items_from_data = set(ds.train_data[uid])
+        assert train_items_from_matrix == train_items_from_data
