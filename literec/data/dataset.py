@@ -73,6 +73,9 @@ class Dataset:
         train, valid, test = {}, {}, {}
         for uid, group in df.sort_values("time").groupby("user"):
             items = group["item"].tolist()
+            if len(items) < 3:
+                train[uid] = items
+                continue
             test[uid] = [items[-1]]
             valid[uid] = [items[-2]]
             train[uid] = items[:-2]

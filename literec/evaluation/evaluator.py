@@ -24,25 +24,23 @@ class Evaluator:
         scores: torch.Tensor,
         ground_truth: dict[int, list[int]],
         train_mask: dict[int, list[int]],
-    ) -> dict[str, float]:
+    ) -> dict[str, list[float]]:
         for uid, items in train_mask.items():
             scores[uid, items] = float("-inf")
 
         _, topk_indices = torch.topk(scores, self.max_k, dim=1)
 
-        results: dict[str, float] = {}
+        results: dict[str, list[float]] = {}
         for k in self.topk:
             topk_k = topk_indices[:, :k]
             for metric in self.metrics:
                 display = self.METRIC_NAMES.get(metric, metric)
                 key = f"{display}@{k}"
                 fn = getattr(self, f"_{metric}")
-                values = []
                 for uid in ground_truth:
                     gt = set(ground_truth[uid])
                     pred = topk_k[uid].tolist()
-                    values.append(fn(pred, gt))
-                results[key] = float(np.mean(values)) if values else 0.0
+                    results.setdefault(key, []).append(fn(pred, gt))
         return results
 
     @staticmethod

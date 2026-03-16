@@ -43,6 +43,27 @@ def test_random_split(tiny_csv):
         assert total == 5
 
 
+def test_loo_split_few_interactions(tmp_path):
+    """Users with < 3 interactions go to train only, no crash."""
+    data = (
+        "userId,movieId,rating,timestamp\n"
+        # user 1: 5 interactions (normal)
+        "1,10,5.0,100\n1,20,4.0,200\n1,30,3.0,300\n1,40,5.0,400\n1,50,4.0,500\n"
+        # user 2: 2 interactions (too few for LOO)
+        "2,10,4.0,100\n2,20,5.0,200\n"
+        # user 3: 5 interactions (normal)
+        "3,10,5.0,100\n3,20,4.0,200\n3,30,5.0,300\n3,40,3.0,400\n3,50,4.0,500\n"
+    )
+    path = tmp_path / "ratings.csv"
+    path.write_text(data)
+    ds = Dataset(str(path), min_interactions=2, split="loo")
+    # user with 2 interactions should be in train only
+    user2_id = ds._user_map[2]
+    assert user2_id not in ds.test_data
+    assert user2_id not in ds.valid_data
+    assert len(ds.train_data[user2_id]) == 2
+
+
 def test_train_matrix_no_leakage(tiny_csv):
     ds = Dataset(tiny_csv, split="loo")
     for uid in range(ds.n_users):

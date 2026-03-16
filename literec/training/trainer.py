@@ -169,7 +169,7 @@ class Trainer:
             batch_mask = {i: mask_data.get(uid, []) for i, uid in enumerate(batch_uids)}
 
             batch_results = self.evaluator.compute(scores, batch_gt, batch_mask)
-            for k, v in batch_results.items():
-                all_results.setdefault(k, []).append(v)
+            for k, v_list in batch_results.items():
+                all_results.setdefault(k, []).extend(v_list)
 
         return {k: float(np.mean(vs)) for k, vs in all_results.items()}
