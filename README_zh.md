@@ -1,35 +1,33 @@
 # Lite-Rec
 
-[中文版](README_zh.md)
+輕量推薦系統框架，專為學術研究設計。以最少的依賴取代 RecBole，專注於協同過濾模型，支援 Python 3.11+ 與 PyTorch。
 
-Lightweight recommendation framework for academic research. A minimal replacement for RecBole, focused on collaborative filtering models with modern Python (3.11+) and PyTorch.
+## 特色
 
-## Features
+- **3 種模型**：BPR（矩陣分解）、LightGCN、NGCF
+- **完整排序評估**：Recall、NDCG、MRR、Hit、Precision @K
+- **自動裝置偵測**：CUDA / MPS / CPU
+- **Leave-one-out 與隨機切分**
+- **Early stopping** 與最佳模型 checkpoint
+- **可重現**：透過 seed 控制
+- **僅 4 個依賴**：torch、numpy、scipy、pandas
 
-- **3 models**: BPR (Matrix Factorization), LightGCN, NGCF
-- **Full ranking evaluation**: Recall, NDCG, MRR, Hit, Precision @K
-- **Auto device**: CUDA / MPS / CPU auto detection
-- **Leave-one-out & random split**
-- **Early stopping** with best model checkpoint
-- **Reproducible** via seed control
-- **4 dependencies**: torch, numpy, scipy, pandas
-
-## Installation
+## 安裝
 
 ```bash
-# From GitHub (recommended for Colab)
+# 從 GitHub 安裝（推薦用於 Colab）
 pip install git+https://github.com/tungwu1230/literec.git
 
-# From local clone
+# 從本地安裝
 git clone https://github.com/tungwu1230/literec.git
 cd literec
 pip install -e .
 
-# For development
+# 開發模式
 pip install -e ".[dev]"
 ```
 
-## Quick Start
+## 快速開始
 
 ```python
 from literec import Dataset, LightGCN, Trainer
@@ -41,13 +39,13 @@ result = trainer.fit()
 # result = {'Recall@10': 0.15, 'NDCG@10': 0.08, ...}
 ```
 
-## Models
+## 模型
 
-| Model | Description | Key Hyperparameters |
-|-------|-------------|-------------------|
-| `BPR` | Matrix Factorization with BPR loss | `emb_size`, `reg_weight` |
-| `LightGCN` | Light Graph Convolution Network | `emb_size`, `n_layers`, `reg_weight` |
-| `NGCF` | Neural Graph Collaborative Filtering | `emb_size`, `n_layers`, `dropout`, `reg_weight` |
+| 模型 | 說明 | 主要超參數 |
+|------|------|-----------|
+| `BPR` | 矩陣分解 + BPR 損失函數 | `emb_size`、`reg_weight` |
+| `LightGCN` | 輕量圖卷積網路 | `emb_size`、`n_layers`、`reg_weight` |
+| `NGCF` | 帶非線性變換的圖協同過濾 | `emb_size`、`n_layers`、`dropout`、`reg_weight` |
 
 ```python
 from literec import BPR, LightGCN, NGCF
@@ -57,17 +55,17 @@ model = LightGCN(dataset, emb_size=64, n_layers=3, reg_weight=1e-5)
 model = NGCF(dataset, emb_size=64, n_layers=3, dropout=0.1, reg_weight=1e-5)
 ```
 
-## Dataset
+## 資料集
 
-Reads CSV files with configurable column names:
+讀取 CSV 檔案，支援自訂欄位名稱：
 
 ```python
 from literec import Dataset
 
-# Default columns: userId, movieId, rating, timestamp
+# 預設欄位：userId, movieId, rating, timestamp
 dataset = Dataset("ratings.csv", min_rating=3.5, split="loo")
 
-# Custom column names
+# 自訂欄位名稱
 dataset = Dataset(
     "data.csv",
     user_col="user_id",
@@ -75,14 +73,14 @@ dataset = Dataset(
     rating_col="score",
     time_col="ts",
     min_rating=0.0,
-    min_interactions=5,  # drop users with < 5 interactions
-    split="loo",         # "loo" (leave-one-out) or "random"
+    min_interactions=5,  # 過濾互動次數 < 5 的使用者
+    split="loo",         # "loo"（leave-one-out）或 "random"
 )
 
 print(dataset.n_users, dataset.n_items)
 ```
 
-## Trainer
+## 訓練器
 
 ```python
 from literec import Trainer
@@ -94,7 +92,7 @@ trainer = Trainer(
     lr=1e-3,
     weight_decay=0.0,
     early_stop_patience=10,
-    device="auto",       # "auto", "cpu", "cuda"
+    device="auto",       # "auto"、"cpu"、"cuda"
     seed=42,
     topk=[10, 20, 50],
     metrics=["recall", "ndcg", "hit"],
@@ -103,7 +101,7 @@ trainer = Trainer(
 result = trainer.fit()
 ```
 
-Supported metrics: `recall`, `ndcg`, `mrr`, `hit`, `precision`
+支援的指標：`recall`、`ndcg`、`mrr`、`hit`、`precision`
 
 ## CLI
 
@@ -113,26 +111,26 @@ python run.py --data ratings.csv --model bpr --min_rating 3.5 --topk 10 20 50
 python run.py --data ratings.csv --model ngcf --n_layers 3 --dropout 0.1
 ```
 
-## Project Structure
+## 專案結構
 
 ```
 literec/
 ├── config.py              # LiteRecConfig dataclass
 ├── data/
-│   ├── dataset.py         # CSV loading, ID remapping, split
-│   └── dataloader.py      # Pairwise negative sampling
+│   ├── dataset.py         # CSV 載入、ID 重新映射、資料切分
+│   └── dataloader.py      # Pairwise 負採樣
 ├── model/
 │   ├── base.py            # AbstractRecommender
 │   ├── bpr.py             # BPR
 │   ├── lightgcn.py        # LightGCN
 │   └── ngcf.py            # NGCF
 ├── training/
-│   └── trainer.py         # Training loop, early stopping
+│   └── trainer.py         # 訓練迴圈、early stopping
 └── evaluation/
-    └── evaluator.py       # Full ranking metrics
+    └── evaluator.py       # 完整排序評估指標
 ```
 
-## Requirements
+## 環境需求
 
 - Python >= 3.11
 - PyTorch >= 2.0
