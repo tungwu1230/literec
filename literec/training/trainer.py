@@ -8,6 +8,11 @@ import torch
 from literec.data.dataloader import TrainDataLoader
 from literec.evaluation.evaluator import Evaluator
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
 
 def _resolve_device(device: str) -> str:
     if device != "auto":
@@ -69,7 +74,10 @@ class Trainer:
             self.model.train()
             total_loss = 0.0
             n_batches = 0
-            for users, pos_items, neg_items in self.train_loader:
+            loader = self.train_loader
+            if tqdm is not None:
+                loader = tqdm(loader, desc=f"Epoch {epoch+1}", leave=False)
+            for users, pos_items, neg_items in loader:
                 users = users.to(self.device)
                 pos_items = pos_items.to(self.device)
                 neg_items = neg_items.to(self.device)
