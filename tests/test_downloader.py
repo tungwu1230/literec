@@ -128,3 +128,33 @@ def test_cache_skip(tmp_path):
         load_dataset("ml-1m", data_dir=tmp_path)
 
     assert call_count == 1
+
+
+def test_bad_zip_cleans_up(tmp_path):
+    """Corrupted zip: temp files cleaned up, no partial state."""
+    def bad_urlretrieve(url, filename, reporthook=None):
+        Path(filename).write_bytes(b"this is not a zip")
+
+    with patch("literec.data.downloader.urllib.request.urlretrieve", bad_urlretrieve):
+        with pytest.raises(zipfile.BadZipFile):
+            load_dataset("ml-1m", data_dir=tmp_path)
+
+    # No zip or temp csv left
+    assert not (tmp_path / "ml-1m.zip").exists()
+    assert not (tmp_path / "ml-1m" / "ratings.csv.tmp").exists()
+    assert not (tmp_path / "ml-1m" / "ratings.csv").exists()
+
+
+def test_conversion_failure_cleans_up(tmp_path):
+    """Failed conversion: temp csv cleaned up."""
+    with patch("literec.data.downloader.urllib.request.urlretrieve", _mock_urlretrieve):
+        with patch(
+            "literec.data.downloader._convert_raw_to_csv",
+            side_effect=RuntimeError("conversion failed"),
+        ):
+            with pytest.raises(RuntimeError, match="conversion failed"):
+                load_dataset("ml-1m", data_dir=tmp_path)
+
+    assert not (tmp_path / "ml-1m.zip").exists()
+    assert not (tmp_path / "ml-1m" / "ratings.csv.tmp").exists()
+    assert not (tmp_path / "ml-1m" / "ratings.csv").exists()
