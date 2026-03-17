@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import os
+import shutil
 from pathlib import Path
+
+import pandas as pd
 
 from literec.data.dataset import Dataset
 
@@ -34,6 +38,37 @@ DATASETS = {
         "header": 0,
     },
 }
+
+
+def _convert_raw_to_csv(
+    raw_path: Path,
+    csv_path: Path,
+    sep: str,
+    columns: list[str],
+    header: int | None,
+) -> None:
+    """Convert a raw ratings file to standard CSV with atomic write.
+
+    For files that are already conforming CSV (sep="," and header=0),
+    uses shutil.copy to avoid loading the entire file into memory.
+    """
+    tmp_path = csv_path.with_suffix(".csv.tmp")
+    try:
+        if sep == "," and header == 0:
+            shutil.copy(raw_path, tmp_path)
+        else:
+            df = pd.read_csv(
+                raw_path,
+                sep=sep,
+                header=header,
+                names=columns if header is None else None,
+                engine="python",
+            )
+            df.to_csv(tmp_path, index=False)
+        os.replace(tmp_path, csv_path)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def available_datasets() -> list[str]:
