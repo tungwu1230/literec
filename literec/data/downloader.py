@@ -98,15 +98,23 @@ def _download_and_extract(url: str, zip_path: Path, raw_dir: Path) -> None:
                 )
             pbar.update(block_size)
 
-        urllib.request.urlretrieve(url, str(zip_path), reporthook=reporthook)
-        if pbar is not None:
-            pbar.close()
+        try:
+            urllib.request.urlretrieve(url, str(zip_path), reporthook=reporthook)
+        finally:
+            if pbar is not None:
+                pbar.close()
     except ImportError:
         print(f"Downloading {zip_path.stem}...")
         urllib.request.urlretrieve(url, str(zip_path))
         print("Download complete.")
 
     with zipfile.ZipFile(zip_path) as zf:
+        # Validate no path traversal (zip-slip protection)
+        raw_dir_resolved = raw_dir.resolve()
+        for member in zf.namelist():
+            target = (raw_dir / member).resolve()
+            if not str(target).startswith(str(raw_dir_resolved)):
+                raise ValueError(f"Zip entry would escape target dir: {member}")
         zf.extractall(raw_dir)
 
 

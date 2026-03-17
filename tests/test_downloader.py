@@ -1,6 +1,11 @@
+import zipfile
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
-from literec.data.downloader import available_datasets, load_dataset
+from literec.data.dataset import Dataset
+from literec.data.downloader import _convert_raw_to_csv, available_datasets, load_dataset
 
 
 def test_available_datasets():
@@ -11,9 +16,6 @@ def test_available_datasets():
 def test_invalid_name_raises():
     with pytest.raises(ValueError, match="Unknown dataset 'not-a-dataset'"):
         load_dataset("not-a-dataset")
-
-
-from literec.data.downloader import _convert_raw_to_csv
 
 
 def test_convert_tab_separated(tmp_path):
@@ -70,13 +72,6 @@ def test_convert_csv_with_header(tmp_path):
     )
 
     assert out.read_text() == raw.read_text()
-
-
-import zipfile
-from pathlib import Path
-from unittest.mock import patch
-
-from literec.data.dataset import Dataset
 
 
 def _create_fake_zip(zip_path, inner_file, content):
