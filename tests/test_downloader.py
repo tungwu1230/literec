@@ -158,3 +158,10 @@ def test_conversion_failure_cleans_up(tmp_path):
     assert not (tmp_path / "ml-1m.zip").exists()
     assert not (tmp_path / "ml-1m" / "ratings.csv.tmp").exists()
     assert not (tmp_path / "ml-1m" / "ratings.csv").exists()
+
+
+def test_public_import():
+    """load_dataset and available_datasets accessible from top-level package."""
+    from literec import load_dataset as ld, available_datasets as ad
+    assert callable(ld)
+    assert callable(ad)
