@@ -70,3 +70,61 @@ def test_convert_csv_with_header(tmp_path):
     )
 
     assert out.read_text() == raw.read_text()
+
+
+import zipfile
+from pathlib import Path
+from unittest.mock import patch
+
+from literec.data.dataset import Dataset
+
+
+def _create_fake_zip(zip_path, inner_file, content):
+    """Helper to create a zip containing a single file."""
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr(inner_file, content)
+
+
+def _mock_urlretrieve(url, filename, reporthook=None):
+    """Mock that creates a zip mimicking ml-1m format."""
+    content = "1::10::5.0::100\n1::20::4.0::200\n1::30::3.0::300\n"
+    content += "1::40::5.0::400\n1::50::4.0::500\n"
+    content += "2::10::4.0::100\n2::20::5.0::200\n2::30::3.0::300\n"
+    content += "2::40::4.0::400\n2::50::5.0::500\n"
+    content += "3::10::5.0::100\n3::20::4.0::200\n3::30::5.0::300\n"
+    content += "3::40::3.0::400\n3::50::4.0::500\n"
+    _create_fake_zip(Path(filename), "ml-1m/ratings.dat", content)
+
+
+def test_load_dataset_returns_dataset(tmp_path):
+    with patch("literec.data.downloader.urllib.request.urlretrieve", _mock_urlretrieve):
+        ds = load_dataset("ml-1m", data_dir=tmp_path)
+
+    assert isinstance(ds, Dataset)
+    assert ds.n_users == 3
+    assert ds.n_items == 5
+
+
+def test_kwargs_passthrough(tmp_path):
+    with patch("literec.data.downloader.urllib.request.urlretrieve", _mock_urlretrieve):
+        ds = load_dataset("ml-1m", data_dir=tmp_path, min_rating=4.5, min_interactions=3)
+
+    # min_rating=4.5 filters most interactions, min_interactions=3 drops users
+    assert ds.n_users == 0
+
+
+def test_cache_skip(tmp_path):
+    """Second call should not re-download."""
+    call_count = 0
+
+    def counting_urlretrieve(url, filename, reporthook=None):
+        nonlocal call_count
+        call_count += 1
+        _mock_urlretrieve(url, filename, reporthook)
+
+    with patch("literec.data.downloader.urllib.request.urlretrieve", counting_urlretrieve):
+        load_dataset("ml-1m", data_dir=tmp_path)
+        load_dataset("ml-1m", data_dir=tmp_path)
+
+    assert call_count == 1

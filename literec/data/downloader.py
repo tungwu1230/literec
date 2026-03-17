@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import urllib.request
+import zipfile
 from pathlib import Path
 
 import pandas as pd
@@ -76,6 +78,38 @@ def available_datasets() -> list[str]:
     return list(DATASETS.keys())
 
 
+def _download_and_extract(url: str, zip_path: Path, raw_dir: Path) -> None:
+    """Download a zip and extract to raw_dir."""
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        from tqdm import tqdm
+
+        pbar = None
+
+        def reporthook(count, block_size, total_size):
+            nonlocal pbar
+            if pbar is None:
+                pbar = tqdm(
+                    total=total_size if total_size > 0 else None,
+                    unit="B",
+                    unit_scale=True,
+                    desc="Downloading",
+                )
+            pbar.update(block_size)
+
+        urllib.request.urlretrieve(url, str(zip_path), reporthook=reporthook)
+        if pbar is not None:
+            pbar.close()
+    except ImportError:
+        print(f"Downloading {zip_path.stem}...")
+        urllib.request.urlretrieve(url, str(zip_path))
+        print("Download complete.")
+
+    with zipfile.ZipFile(zip_path) as zf:
+        zf.extractall(raw_dir)
+
+
 def load_dataset(name: str, data_dir: str | Path = "./data", **kwargs) -> Dataset:
     """Download a dataset and return a Dataset object.
 
@@ -96,5 +130,29 @@ def load_dataset(name: str, data_dir: str | Path = "./data", **kwargs) -> Datase
             f"Unknown dataset '{name}'. Available datasets: {available}"
         )
 
-    # Placeholder — download logic added in later tasks
-    raise NotImplementedError
+    info = DATASETS[name]
+    data_dir = Path(data_dir).resolve()
+    dataset_dir = data_dir / name
+    csv_path = dataset_dir / "ratings.csv"
+
+    if not csv_path.exists():
+        zip_path = data_dir / f"{name}.zip"
+        raw_dir = dataset_dir / "raw"
+        try:
+            _download_and_extract(info["url"], zip_path, raw_dir)
+            raw_file = raw_dir / info["raw_file"]
+            _convert_raw_to_csv(
+                raw_path=raw_file,
+                csv_path=csv_path,
+                sep=info["sep"],
+                columns=info["columns"],
+                header=info["header"],
+            )
+        except Exception:
+            zip_path.unlink(missing_ok=True)
+            csv_path.with_suffix(".csv.tmp").unlink(missing_ok=True)
+            raise
+        finally:
+            zip_path.unlink(missing_ok=True)
+
+    return Dataset(str(csv_path), **kwargs)
