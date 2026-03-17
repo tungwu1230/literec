@@ -24,7 +24,7 @@ dataset = load_dataset("ml-1m", data_dir="./my_data", min_rating=3.5)
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `name` | `str` | (required) | Dataset identifier (e.g. `"ml-1m"`) |
-| `data_dir` | `str` | `"./data"` | Directory to store downloaded files (resolved relative to CWD) |
+| `data_dir` | `str \| Path` | `"./data"` | Directory to store downloaded files (resolved relative to CWD) |
 | `**kwargs` | | | Passed through to `Dataset()` (`min_rating`, `split`, `test_ratio`, etc.) |
 
 **Returns:** A `Dataset` object ready for model training.
@@ -136,13 +136,12 @@ For `ml-25m`, since the raw file is already a conforming CSV, use `shutil.copy` 
 3. Download zip to a temporary file (`{data_dir}/{name}.zip`) using `urllib.request.urlretrieve`.
 4. Extract zip contents to `{data_dir}/{name}/raw/` using `zipfile`.
 5. Delete the temporary zip file.
-6. Read the raw ratings file from `{data_dir}/{name}/raw/{raw_file}` and convert to standard CSV at `{data_dir}/{name}/ratings.csv`. For `ml-25m` (already CSV), use `shutil.copy` instead.
-7. Write the CSV to a temporary file first, then rename atomically to `ratings.csv` to prevent partial files on interruption.
+6. Convert the raw ratings file to standard CSV. For all datasets (including `ml-25m` via `shutil.copy`), write to a temporary file `ratings.csv.tmp` first, then `os.replace()` to the final `ratings.csv` for atomic write.
 8. Construct and return `Dataset("{data_dir}/{name}/ratings.csv", **kwargs)`.
 
-**Error cleanup:** Steps 3-7 are wrapped in a try/except. On failure:
+**Error cleanup:** Steps 3-6 are wrapped in a try/except. On failure:
 - Delete the temporary zip file if it exists.
-- Delete any partially-written `ratings.csv`.
+- Delete any partially-written `ratings.csv.tmp`.
 - Re-raise the exception.
 
 This prevents corrupted files from blocking future download attempts.
@@ -168,10 +167,12 @@ Contains:
 
 ### Modified file: `literec/data/__init__.py`
 
-Add re-export:
+Add re-export and update `__all__`:
 ```python
 from literec.data.downloader import load_dataset, available_datasets
 ```
+
+Add `"load_dataset"` and `"available_datasets"` to `__all__`.
 
 ### Modified file: `literec/__init__.py`
 
@@ -204,7 +205,8 @@ No changes needed. All functionality uses stdlib (`urllib.request`, `zipfile`, `
 | `test_cache_skip` | No download when `ratings.csv` already exists |
 | `test_load_dataset_returns_dataset` | Returns `Dataset` with valid `n_users`, `n_items` |
 | `test_kwargs_passthrough` | `min_rating`, `split` etc. forwarded to `Dataset()` |
-| `test_bad_zip_cleans_up` | Corrupted zip is cleaned up, no partial files left |
+| `test_bad_zip_cleans_up` | Corrupted zip is cleaned up, no partial zip or `ratings.csv.tmp` left |
+| `test_conversion_failure_cleans_up` | Failed CSV conversion cleans up temp files, no partial `ratings.csv` left |
 
 Tests mock the download step to avoid network dependency. Format conversion tests use small synthetic data files.
 
@@ -217,4 +219,4 @@ Tests mock the download step to avoid network dependency. Format conversion test
 5. **Cache by file existence:** Simple check for `ratings.csv` — no version tracking or checksums. Sufficient for stable, versioned datasets like MovieLens.
 6. **Hardcoded registry:** A dict is sufficient for 4 MovieLens variants. Can be refactored to a class-based approach when more dataset families are added.
 7. **Atomic writes and cleanup:** Temporary file + rename for `ratings.csv` prevents partial files. Failed downloads are cleaned up automatically.
-8. **Add `data/` to `.gitignore`:** Prevent accidental commit of downloaded datasets.
+8. **Add `data/` to `.gitignore`:** Prevent accidental commit of downloaded datasets. Only protects the default `data_dir`; users with custom paths manage their own ignore rules.
